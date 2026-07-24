@@ -72,3 +72,13 @@ class EmbeddingError(AppError):
             message=message,
             code="EMBEDDING_ERROR",
         )
+
+class VectorStoreError(AppError):
+    def __init__(
+        self,
+        message: str = "벡터 저장소 처리에 실패했습니다.",
+    ) -> None:
+        super().__init__(
+            message=message,
+            code="VECTOR_STORE_ERROR",
+        )

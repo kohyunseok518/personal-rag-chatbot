@@ -226,4 +226,152 @@ class FaissVectorStore(VectorStorePort):
             ) from error
 
         if int(index.ntotal) != len(chunks):
-            raise VectorStoreErr
+            raise VectorStoreError(
+                message=(
+                    "FAISS 벡터 개수와 저장된 "
+                    "청크 개수가 일치하지 않습니다."
+                ),
+            )
+
+        self._index = index
+        self._chunks = chunks
+
+    def search(
+        self,
+        query_vector: Sequence[float],
+        top_k: int,
+    ) -> list[RetrievedChunk]:
+        if top_k <= 0:
+            raise ValueError(
+                "top_k는 0보다 커야 합니다."
+            )
+
+        if self._index is None:
+            self.load()
+
+        if self._index is None:
+            raise VectorStoreNotReadyError()
+
+        query_matrix = np.asarray(
+            [query_vector],
+            dtype=np.float32,
+        )
+
+        if (
+            query_matrix.ndim != 2
+            or query_matrix.shape[1] == 0
+        ):
+            raise VectorStoreError(
+                message=(
+                    "질문 벡터의 형태가 "
+                    "올바르지 않습니다."
+                ),
+            )
+
+        if query_matrix.shape[1] != self._index.d:
+            raise VectorStoreError(
+                message=(
+                    "질문 벡터와 인덱스의 "
+                    "차원이 일치하지 않습니다."
+                ),
+            )
+
+        if not np.isfinite(query_matrix).all():
+            raise VectorStoreError(
+                message=(
+                    "질문 벡터에 유효하지 않은 "
+                    "숫자가 포함되어 있습니다."
+                ),
+            )
+
+        query_matrix = np.ascontiguousarray(
+            query_matrix
+        )
+
+        faiss.normalize_L2(query_matrix)
+
+        search_count = min(
+            top_k,
+            len(self._chunks),
+        )
+
+        scores, indices = self._index.search(
+            query_matrix,
+            search_count,
+        )
+
+        results = []
+
+        for rank, (
+            chunk_index,
+            score,
+        ) in enumerate(
+            zip(
+                indices[0],
+                scores[0],
+                strict=True,
+            ),
+            start=1,
+        ):
+            if chunk_index < 0:
+                continue
+
+            result = RetrievedChunk(
+                chunk=self._chunks[
+                    int(chunk_index)
+                ],
+                score=float(score),
+                rank=rank,
+            )
+
+            results.append(result)
+
+        return results
+
+    @property
+    def count(self) -> int:
+        return len(self._chunks)
+
+    @property
+    def dimension(self) -> int:
+        if self._index is None:
+            return 0
+
+        return int(self._index.d)
+
+    @property
+    def storage_path(self) -> Path:
+        return self._storage_path
+
+    def _serialize_chunk(
+        self,
+        chunk: DocumentChunk,
+    ) -> dict[str, Any]:
+        return {
+            "chunk_id": chunk.chunk_id,
+            "document_id": chunk.document_id,
+            "document_title": (
+                chunk.document_title
+            ),
+            "content": chunk.content,
+            "chunk_index": chunk.chunk_index,
+            "metadata": chunk.metadata,
+        }
+
+    def _deserialize_chunk(
+        self,
+        item: dict[str, Any],
+    ) -> DocumentChunk:
+        return DocumentChunk(
+            chunk_id=item["chunk_id"],
+            document_id=item["document_id"],
+            document_title=(
+                item["document_title"]
+            ),
+            content=item["content"],
+            chunk_index=item["chunk_index"],
+            metadata=item.get(
+                "metadata",
+                {},
+            ),
+        )

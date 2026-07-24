@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     raw_document_path: Path = Path("data/raw")
     vector_store_path: Path = Path("data/vector_store")
+    vector_index_name: str = "personal_knowledge_v1"
 
     chunk_size: int = Field(default=1000, gt=0)
     chunk_overlap: int = Field(default=150, ge=0)
