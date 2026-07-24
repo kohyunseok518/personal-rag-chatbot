@@ -62,3 +62,13 @@ class AnswerGenerationError(AppError):
             message=message,
             code="ANSWER_GENERATION_ERROR",
         )
+
+class EmbeddingError(AppError):
+    def __init__(
+        self,
+        message: str = "텍스트 벡터화에 실패했습니다.",
+    ) -> None:
+        super().__init__(
+            message=message,
+            code="EMBEDDING_ERROR",
+        )
