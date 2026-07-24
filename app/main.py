@@ -7,9 +7,9 @@ from fastapi import FastAPI
 
 from app.api.exception_handlers import register_exception_handlers
 from app.api.routes.health import router as health_router
+from app.api.routes.chat import router as chat_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(application)
     application.include_router(health_router)
+    application.include_router(chat_router)
 
     return application
 
